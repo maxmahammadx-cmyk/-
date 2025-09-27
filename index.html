@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>اختبار صفحات القرآن الكريم</title>
+<style>
+  body {
+    background: #f4f4f4;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  input, button {
+    padding: 10px;
+    margin: 5px;
+    font-size: 16px;
+  }
+  #ayahBox {
+    background: #fff;
+    border: 2px solid #0a8;
+    padding: 20px;
+    margin-top: 20px;
+    font-size: 22px;
+    min-height: 120px;
+    direction: rtl;
+    box-shadow: 0 0 10px #aaa;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<h2>اختبار صفحات القرآن الكريم</h2>
+<p>اختر من أي صفحة إلى أي صفحة:</p>
+
+<label>من صفحة:</label>
+<input type="number" id="fromPage" min="1" max="604" value="1">
+<label>إلى صفحة:</label>
+<input type="number" id="toPage" min="1" max="604" value="3">
+<button onclick="startTest()">ابدأ الاختبار</button>
+
+<div id="ayahBox">--</div>
+
+<button onclick="prevAyah()">الآية السابقة</button>
+<button onclick="nextAyah()">الآية التالية</button>
+<button onclick="nextQuestion()">سؤال جديد</button>
+
+<script>
+let data = {};              // تخزين الآيات بعد جلبها
+let selectedPages = [];
+let currentPageIndex = 0;
+let currentAyahIndex = 0;
+
+// جلب الآيات لصفحة معينة من الـ API
+async function fetchPage(pageNumber) {
+  const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNumber}/quran-uthmani`);
+  const json = await res.json();
+  if (json.status !== 'OK') return [];
+
+  // الآيات كلها في هذا الكائن مع معلومات السورة والآية
+  const ayat = json.data.ayahs.map(a => ({
+    text: a.text,
+    surah: a.surah.name,
+    number: a.numberInSurah
+  }));
+  return ayat;
+}
+
+async function startTest() {
+  const from = parseInt(document.getElementById('fromPage').value);
+  const to = parseInt(document.getElementById('toPage').value);
+  selectedPages = [];
+  data = {};
+
+  for (let i = from; i <= to; i++) {
+    const ayat = await fetchPage(i);
+    if (ayat.length > 0) {
+      data[i] = ayat;
+      selectedPages.push(i);
+    }
+  }
+
+  if (selectedPages.length === 0) {
+    alert("لا توجد آيات في هذا النطاق.");
+    return;
+  }
+
+  currentPageIndex = 0;
+  currentAyahIndex = 0;
+  showAyah();
+}
+
+function showAyah() {
+  const page = selectedPages[currentPageIndex];
+  const ayat = data[page];
+  if (!ayat) return;
+
+  const ayahObj = ayat[currentAyahIndex];
+  document.getElementById('ayahBox').innerHTML =
+    `<div>صفحة ${page}</div>
+     <div><strong>${ayahObj.surah} – ${ayahObj.number}</strong></div>
+     <div>${ayahObj.text}</div>`;
+}
+
+function nextAyah() {
+  const page = selectedPages[currentPageIndex];
+  if (!data[page]) return;
+
+  if (currentAyahIndex < data[page].length - 1) {
+    currentAyahIndex++;
+  } else if (currentPageIndex < selectedPages.length - 1) {
+    currentPageIndex++;
+    currentAyahIndex = 0;
+  }
+  showAyah();
+}
+
+function prevAyah() {
+  if (currentAyahIndex > 0) {
+    currentAyahIndex--;
+  } else if (currentPageIndex > 0) {
+    currentPageIndex--;
+    currentAyahIndex = data[selectedPages[currentPageIndex]].length - 1;
+  }
+  showAyah();
+}
+
+function nextQuestion() {
+  const randIndex = Math.floor(Math.random() * selectedPages.length);
+  currentPageIndex = randIndex;
+  currentAyahIndex = 0;
+  showAyah();
+}
+</script>
+
+</body>
+</html>
